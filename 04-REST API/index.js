@@ -1,9 +1,40 @@
 const express = require("express")
 const users = require("./MOCK_DATA")
+const mongoose = require("mongoose")
 const fs = require("fs")
 
 const app = express()
 const PORT = 8000
+
+// Connection String
+mongoose.connect('mongodb://127.0.0.1:27017/my_new_database')
+    .then(() => console.log("MongoDB Connected Successfully!"))
+    .catch((err) => console.log("MongoDB Connection Error: ", err));
+
+const userSchema = new mongoose.Schema({
+    firstName: {
+        type: String,
+        required: true,
+    },
+    lastName: {
+        type: String,
+    },
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+    },
+    gender: {
+        type: String,
+        required: true,
+    },
+    ipAddress: {
+        type: String,
+        required: true,
+    }
+})
+
+const User = mongoose.model("user", userSchema)
 
 // MiddleWare - Plugin
 app.use(express.urlencoded({extended: false}))
@@ -20,18 +51,21 @@ app.use((req, res, next) => {
 //     next()
 // })
 
-// app.get('/api/users', (req,res) => {
-//     const html = `
-//     <ul>
-//         ${users.map((user) => `<li>${user.first_name}</li>`).join("")}
-//     </ul>
-//     `
-//     return res.send(html)
-// })
+app.get('/api/users', async (req,res) => {
+    const allDbUsers = await User.find({})
+    const html = `
+    <ul>
+        ${allDbUsers.map((user) => `<li>${user.firstName} - ${user.email}</li>`).join("")}
+    </ul>
+    `
+    return res.send(html)
+})
 
-app.route('/api/users/:id').get((req,res) => {
-    const id = Number(req.params.id)
-    const user = users.find((user) => user.id === id)
+app.route('/api/users/:id')
+.get(async (req,res) => {
+    // const id = Number(req.params.id)
+    // const user = users.find((user) => user.id === id)
+    const user = await User.findById(req.params.id)
     res.json(user)
 })
 .put((req,res)=> {
@@ -41,15 +75,24 @@ app.route('/api/users/:id').get((req,res) => {
     return res.json({status: "pending"})
 })
 
-app.post('/api/users', (req, res) => {
+app.post('/api/users', async (req, res) => {
     const body = req.body
     if (!body || !body.first_name || !body.last_name || !body.email || !body.gender || !body.ip_address){
         return res.status(400).json({msg: "All fields are required..."})
     }
-    users.push({...body, id: users.length+1})
-    fs.writeFile('./MOCK_DATA.json', JSON.stringify(users), (err, data) => {
-        return res.json({status: "pending"})
+    // users.push({...body, id: users.length+1})
+    // fs.writeFile('./MOCK_DATA.json', JSON.stringify(users), (err, data) => {
+    //     return res.json({status: "pending"})
+    // })
+    const result = await User.create({
+        firstName: body.first_name,
+        lastName: body.last_name,
+        email: body.email,
+        gender: body.gender,
+        ipAddress: body.ip_address
     })
+    console.log("result", result)
+    return res.status(201).json({msg: 'success'})
 })
 
 app.get("/api/users", (req, res) => {
